@@ -19,7 +19,7 @@ jobs:
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
-          make O=out msm8937_defconfig
+          make O=out vendor/msm8937_defconfig
           make O=out -j$(nproc) KCFLAGS="-Wno-error"
 
       - name: Upload artifact
