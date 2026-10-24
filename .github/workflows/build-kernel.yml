@@ -39,6 +39,7 @@ jobs:
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           make O=out vendor/msm8937_defconfig
           scripts/config --file out/.config \
+            --enable ANDROID_VENDOR_HOOKS \
             --disable FAULT_INJECTION \
             --disable FAULT_INJECTION_DEBUG_FS \
             --disable FAULT_INJECTION_STACKTRACE_FILTER \
