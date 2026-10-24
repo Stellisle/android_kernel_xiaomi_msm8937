@@ -38,6 +38,17 @@ jobs:
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           make O=out vendor/msm8937_defconfig
+          scripts/config --file out/.config \
+            --disable FAULT_INJECTION \
+            --disable FAULT_INJECTION_DEBUG_FS \
+            --disable FAULT_INJECTION_STACKTRACE_FILTER \
+            --disable FAILSLAB \
+            --disable FAIL_PAGE_ALLOC \
+            --disable FAIL_MAKE_REQUEST \
+            --disable FAIL_IO_TIMEOUT \
+            --disable FAIL_FUTEX \
+            --disable FAIL_FUNCTION
+          make O=out olddefconfig
           make O=out -j$(nproc) KCFLAGS="-Wno-error"
 
       - name: Upload artifact
