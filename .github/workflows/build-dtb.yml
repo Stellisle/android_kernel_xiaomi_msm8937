@@ -1,0 +1,107 @@
+name: Build Mi8937 dtb (land) and pack with existing Image.gz
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout kernel
+        uses: actions/checkout@v4
+        with:
+          repository: Stellisle/android_kernel_xiaomi_msm8937
+          ref: lineage-23.2
+          path: kernel
+
+      - name: Clone dts repo
+        run: |
+          git clone --depth=1 --branch "dts/mi8937/4.19/master" \
+            https://github.com/Stellisle/kernel_devicetree_xiaomi-msm8937.git \
+            dts-repo
+
+      - name: Download previous kernel artifact (Image.gz)
+        uses: actions/download-artifact@v4
+        with:
+          name: kernel-land
+          run-id: 40053262891
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: prev-kernel
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential flex libssl-dev \
+            libncurses5-dev zip libelf-dev dwarves git gcc-aarch64-linux-gnu
+
+      - name: Download LineageOS Clang r416183b
+        run: |
+          git clone --depth=1 \
+            https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b.git \
+            $HOME/clang
+          $HOME/clang/bin/clang --version
+
+      - name: Merge dts into kernel tree
+        run: |
+          cd kernel
+          mkdir -p arch/arm64/boot/dts/vendor-legacy/qcom
+          cp -rv ../dts-repo/. arch/arm64/boot/dts/vendor-legacy/qcom/
+          grep -n "MACH_XIAOMI_LAND" arch/arm64/boot/dts/vendor-legacy/qcom/Makefile
+
+      - name: Build dtbs only
+        working-directory: kernel
+        run: |
+          export PATH=$HOME/clang/bin:$PATH
+          export ARCH=arm64
+          export LLVM=1
+          export CC=clang
+          export LD=ld.lld
+          export AR=llvm-ar
+          export NM=llvm-nm
+          export OBJCOPY=llvm-objcopy
+          export OBJDUMP=llvm-objdump
+          export STRIP=llvm-strip
+          export CLANG_TRIPLE=aarch64-linux-gnu-
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+
+          make O=out vendor/msm8937_defconfig
+
+          CFGS=""
+          for c in \
+            arch/arm64/configs/vendor/msm8937-legacy.config \
+            arch/arm64/configs/vendor/xiaomi/msm8937/common.config \
+            arch/arm64/configs/vendor/xiaomi/msm8937/mi8937_exclude_mi8917.config \
+            arch/arm64/configs/vendor/feature/lineageos.config; do
+            [ -f "$c" ] && CFGS="$CFGS $c"
+          done
+          [ -n "$CFGS" ] && scripts/kconfig/merge_config.sh -O out out/.config $CFGS
+
+          scripts/config --file out/.config --enable MACH_XIAOMI_LAND
+          make O=out olddefconfig
+          grep -E "MACH_XIAOMI_LAND|BUILD_ARM64_APPENDED_DTB_IMAGE" out/.config
+
+          make O=out -j$(nproc) dtbs
+
+      - name: Pack Image.gz + land.dtb
+        run: |
+          set -e
+          DTB_PATH=$(find kernel/out/arch/arm64/boot/dts -name 'land.dtb' | head -1)
+          IMG_GZ=$(find prev-kernel -name 'Image.gz' | head -1)
+          echo "DTB: $DTB_PATH"
+          echo "Image.gz: $IMG_GZ"
+          ls -lh "$DTB_PATH" "$IMG_GZ"
+          cat "$IMG_GZ" "$DTB_PATH" > Image.gz-dtb
+          ls -lh Image.gz-dtb
+          cp "$IMG_GZ" Image.gz
+          cp "$DTB_PATH" land.dtb
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-land-with-dtb
+          path: |
+            Image.gz-dtb
+            Image.gz
+            land.dtb
+          if-no-files-found: error
