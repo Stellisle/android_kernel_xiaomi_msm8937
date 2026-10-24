@@ -1,0 +1,30 @@
+name: Build Mi8937 Kernel (land)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential flex libssl-dev \
+            libncurses5-dev zip gcc-aarch64-linux-gnu libelf-dev dwarves
+
+      - name: Build kernel
+        run: |
+          export ARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          make O=out msm8937_defconfig
+          make O=out -j$(nproc) KCFLAGS="-Wno-error"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-land
+          path: out/arch/arm64/boot/
+          if-no-files-found: error
