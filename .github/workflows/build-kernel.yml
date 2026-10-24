@@ -13,16 +13,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison build-essential flex libssl-dev \
-            libncurses5-dev zip libelf-dev dwarves curl gcc-aarch64-linux-gnu
+            libncurses5-dev zip libelf-dev dwarves git gcc-aarch64-linux-gnu
 
-      - name: Download AOSP Clang r416183b
+      - name: Download LineageOS Clang r416183b
         run: |
-          mkdir -p $HOME/clang
-          cd $HOME/clang
-          curl -L -o clang.tar.gz \
-            "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r416183b.tar.gz"
-          tar -xzf clang.tar.gz
-          rm clang.tar.gz
+          git clone --depth=1 \
+            https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b.git \
+            $HOME/clang
           $HOME/clang/bin/clang --version
 
       - name: Build kernel
